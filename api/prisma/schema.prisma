@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  supervisor
+  unit_manager
+}
+
+enum UnitStatus {
+  active
+  inactive
+  implantation
+}
+
+enum TicketCategory {
+  equipment
+  operational
+  financial
+  other
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+enum ChecklistExecutionStatus {
+  in_progress
+  validation
+  concluded
+}
+
+enum QuestionType {
+  yes_no
+  multiple_choice
+  numeric
+  text
+  photo
+}
+
+enum ProjectStatus {
+  planning
+  in_progress
+  on_hold
+  concluded
+}
+
+enum TaskStatus {
+  todo
+  doing
+  done
+}
+
+enum TargetAudience {
+  all
+  supervisors
+  specific_units
+}
+
+enum OnboardingStatus {
+  pending
+  in_progress
+  completed
+}
+
+enum OnboardingStepCategory {
+  legal
+  infrastructure
+  training
+  marketing
+  equipment
+}
+
+enum OnboardingStepStatus {
+  pending
+  in_progress
+  completed
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String
+  role                  Role                   @default(unit_manager)
+  phone                 String?
+  active                Boolean                @default(true)
+  managedUnitId         String?
+  managedUnit           Unit?                  @relation("UnitManager", fields: [managedUnitId], references: [id])
+  supervisedUnits       Unit[]                 @relation("SupervisorUnits")
+  createdTickets        Ticket[]               @relation("TicketCreator")
+  assignedTickets       Ticket[]               @relation("TicketAssignee")
+  ticketComments        TicketComment[]
+  checklistExecutions   ChecklistExecution[]
+  projectsResponsible   Project[]              @relation("ProjectResponsible")
+  tasks                 ProjectTask[]
+  announcements         Announcement[]
+  readReceipts          AnnouncementRead[]
+  onboardingPlans       OnboardingPlan[]        @relation("OnboardingResponsible")
+  uploadedFiles         DriveFile[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model Unit {
+  id                String                @id @default(cuid())
+  name              String
+  cnpj              String                @unique
+  address           String
+  city              String
+  state             String
+  phone             String?
+  status            UnitStatus            @default(implantation)
+  openingDate       DateTime?
+  responsibleName   String
+  teamId            String?
+  supervisorId      String?
+  supervisor        User?                 @relation("SupervisorUnits", fields: [supervisorId], references: [id])
+  managers          User[]                @relation("UnitManager")
+  tickets           Ticket[]
+  checklists        ChecklistExecution[]
+  projects          Project[]
+  announcementLinks AnnouncementUnit[]
+  onboardingPlans   OnboardingPlan[]
+  driveFiles        DriveFile[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+}
+
+model Ticket {
+  id          String          @id @default(cuid())
+  title       String
+  description String
+  unitId      String
+  unit        Unit            @relation(fields: [unitId], references: [id])
+  category    TicketCategory
+  priority    TicketPriority  @default(medium)
+  status      TicketStatus    @default(open)
+  createdById String
+  createdBy   User            @relation("TicketCreator", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo  User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  resolvedAt  DateTime?
+  comments    TicketComment[]
+  attachments TicketAttachment[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model TicketAttachment {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileType     String
+  fileSize     Int
+  storagePath  String
+  uploadedAt   DateTime @default(now())
+}
+
+model Questionnaire {
+  id          String       @id @default(cuid())
+  title       String
+  category    String
+  active      Boolean      @default(true)
+  questions   Question[]
+  executions  ChecklistExecution[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Question {
+  id               String        @id @default(cuid())
+  questionnaireId  String
+  questionnaire    Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  title            String
+  type             QuestionType
+  required         Boolean       @default(true)
+  weight           Int           @default(1)
+  options          String[]      @default([])
+  order            Int           @default(0)
+  answers          Answer[]
+}
+
+model ChecklistExecution {
+  id              String                    @id @default(cuid())
+  unitId          String
+  unit            Unit                      @relation(fields: [unitId], references: [id])
+  questionnaireId String
+  questionnaire   Questionnaire             @relation(fields: [questionnaireId], references: [id])
+  executedById    String
+  executedBy      User                      @relation(fields: [executedById], references: [id])
+  status          ChecklistExecutionStatus  @default(in_progress)
+  scorePercentage Float                     @default(0)
+  answers         Answer[]
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+}
+
+model Answer {
+  id          String             @id @default(cuid())
+  executionId String
+  execution   ChecklistExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question           @relation(fields: [questionId], references: [id])
+  value       String?
+  photoPath   String?
+  score       Float?
+  createdAt   DateTime           @default(now())
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  title         String
+  description   String?
+  unitId        String?
+  unit          Unit?         @relation(fields: [unitId], references: [id])
+  responsibleId String
+  responsible   User          @relation("ProjectResponsible", fields: [responsibleId], references: [id])
+  status        ProjectStatus @default(planning)
+  startDate     DateTime?
+  dueDate       DateTime?
+  tasks         ProjectTask[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model ProjectTask {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  assignedToId String?
+  assignedTo  User?      @relation(fields: [assignedToId], references: [id])
+  dueDate     DateTime?
+  status      TaskStatus @default(todo)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Announcement {
+  id             String             @id @default(cuid())
+  title          String
+  content        String
+  authorId       String
+  author         User               @relation(fields: [authorId], references: [id])
+  targetAudience TargetAudience     @default(all)
+  pinned         Boolean            @default(false)
+  targetUnits    AnnouncementUnit[]
+  readReceipts   AnnouncementRead[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model AnnouncementUnit {
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, unitId])
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+model OnboardingPlan {
+  id                       String             @id @default(cuid())
+  unitId                   String
+  unit                     Unit               @relation(fields: [unitId], references: [id])
+  status                   OnboardingStatus   @default(pending)
+  responsibleId            String
+  responsible              User               @relation("OnboardingResponsible", fields: [responsibleId], references: [id])
+  startDate                DateTime?
+  expectedCompletionDate   DateTime?
+  steps                    OnboardingStep[]
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+}
+
+model OnboardingStepTemplate {
+  id          String                 @id @default(cuid())
+  title       String
+  description String?
+  category    OnboardingStepCategory
+  defaultDays Int                    @default(7)
+  order       Int                    @default(0)
+  active      Boolean                @default(true)
+}
+
+model OnboardingStep {
+  id          String                @id @default(cuid())
+  planId      String
+  plan        OnboardingPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    OnboardingStepCategory
+  status      OnboardingStepStatus  @default(pending)
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?
+  order       Int                   @default(0)
+}
+
+model DriveFile {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileType    String
+  fileSize    Int
+  storagePath String
+  uploadedById String
+  uploadedBy  User     @relation(fields: [uploadedById], references: [id])
+  unitId      String?
+  unit        Unit?    @relation(fields: [unitId], references: [id])
+  folderPath  String   @default("/")
+  createdAt   DateTime @default(now())
+}
