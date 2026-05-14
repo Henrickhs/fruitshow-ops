@@ -1,6 +1,7 @@
 node_modules
 .env
 dist
+.postgres
 uploads/*
 !uploads/.gitkeep
 api/uploads/*

@@ -1,6 +1,7 @@
 import { Outlet, NavLink } from 'react-router-dom';
 import { Bell, Building2, CheckSquare, ClipboardList, FolderOpen, Home, LogOut, Megaphone, Rocket, Ticket, Users } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
+import { BrandLogo } from './BrandLogo.jsx';
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: Home },
@@ -19,12 +20,8 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-[#f6f7f2] text-slate-800">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-slate-200 bg-acai-900 text-white lg:block">
-        <div className="flex h-20 items-center gap-3 px-6">
-          <div className="grid h-11 w-11 place-items-center rounded-md bg-sol font-black text-acai-900">FS</div>
-          <div>
-            <p className="text-lg font-black leading-tight">FruitShow Ops</p>
-            <p className="text-xs text-acai-100">Açaí FruitShow</p>
-          </div>
+        <div className="flex h-28 flex-col items-center justify-center px-5">
+          <BrandLogo showText={false} />
         </div>
         <nav className="px-3">
           {nav.map(({ to, label, icon: Icon }) => (
